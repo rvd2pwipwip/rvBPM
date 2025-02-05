@@ -136,7 +136,7 @@ app.get('/playlist-bpm', async (req, res) => {
   }
 });
 
-// Start the server `node server.js`
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+// // Start the server `node server.js`
+// app.listen(port, () => {
+//   console.log(`Server running at http://localhost:${port}`);
+// });
