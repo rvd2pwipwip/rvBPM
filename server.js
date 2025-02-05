@@ -103,3 +103,40 @@ app.get('/callback', async (req, res) => {
     }
   }
 });
+
+// Fetch BPM from a playlist
+app.get('/playlist-bpm', async (req, res) => {
+  const accessToken = spotifyToken; // Use the access token you obtained
+  const playlistId = '5YVM4PAejxwj8wc8gagFPQ'; // Replace with your playlist ID
+
+  try {
+    const trackBPMs = await getBPMs(accessToken, playlistId);
+
+    // Fetch track details to get track titles
+    const tracksResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+
+    const trackDetails = tracksResponse.data.items.map(item => ({
+      title: item.track.name,
+      bpm: trackBPMs.find(bpm => bpm.id === item.track.id)?.bpm || 'N/A'
+    }));
+
+    // Generate HTML response
+    let html = '<h1>Playlist Tracks and BPM</h1><ul>';
+    trackDetails.forEach(track => {
+      html += `<li>${track.title}: ${track.bpm} BPM</li>`;
+    });
+    html += '</ul>';
+
+    res.send(html);
+  } catch (error) {
+    console.error('Error fetching BPM data:', error.response ? error.response.data : error.message);
+    res.send('Error fetching BPM data');
+  }
+});
+
+// Start the server `node server.js`
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+});
