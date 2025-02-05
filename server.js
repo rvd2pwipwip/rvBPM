@@ -1,8 +1,19 @@
-// https://developer.spotify.com/
-// https://spotify.statuspage.io/
+const { getBPMs } = require('./bpmExtractor'); 
+
+/**
+ * https://developer.spotify.com/
+ * The Spotify app's id and secret are in the environment variable (.env). 
+ * After running the node server with `node server.js`,
+ * open http://localhost:8888 and log in to Spotify http://localhost:8888/login
+ * to get an access token.
+ * https://spotify.statuspage.io/
+ */
+
 require('dotenv').config();
+const qs = require('qs');
 const clientSecret = process.env.CLIENT_SECRET;
 const clientId = process.env.CLIENT_ID;
+let spotifyToken = '';
 
 ///////////////////////////////////////
 // Set Up Express Server
@@ -64,28 +75,31 @@ app.get('/callback', async (req, res) => {
   const code = req.query.code || null;
   const authOptions = {
     url: 'https://accounts.spotify.com/api/token',
-    form: {
+    data: qs.stringify({
       code: code,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
-    },
+    }),
     headers: {
-      'Authorization': 'Basic ' + (Buffer.from(clientId + ':' + clientSecret).toString('base64'))
+      'Authorization': 'Basic ' + (Buffer.from(clientId + ':' + clientSecret).toString('base64')),
+      'Content-Type': 'application/x-www-form-urlencoded'
     },
-    json: true,
   };
 
   try {
-    const response = await axios.post(authOptions.url, authOptions.form, {
+    const response = await axios.post(authOptions.url, authOptions.data, {
       headers: authOptions.headers,
     });
     const accessToken = response.data.access_token;
+    spotifyToken = accessToken;
     res.send(`Access Token: ${accessToken}`);
   } catch (error) {
     console.error(
       'Error retrieving access token:',
       error.response ? error.response.data : error.message
     );
-    res.send('Error retrieving access token');
+    if (!res.headersSent) {
+      res.send('Error retrieving access token');
+    }
   }
 });
