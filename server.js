@@ -5,7 +5,7 @@
 /**
  * This basic setup creates a simple web server that listens on port 8888 and 
  * responds with "Hello, Spotify!" when accessed at the root URL. 
- * This is the foundation upon which you can build more complex functionality, 
+ * This is the foundation upon which more complex functionality can be built, 
  * such as handling Spotify authentication and API requests.
  */
 
@@ -28,6 +28,13 @@ app.listen(port, () => {
 // Set Up Authentication Route
 ///////////////////////////////////////
 
+/**
+ * This code sets up the initial step of the OAuth 2.0 authorization flow, 
+ * allowing users to log in to Spotify and grant the application the requested permissions. 
+ * After authorization, Spotify will redirect the user to the specified Redirect URI 
+ * with an authorization code, which can then be exchanged for an access token.
+ */
+
 // https://developer.spotify.com/
 require('dotenv').config();
 const clientSecret = process.env.CLIENT_SECRET;
@@ -44,6 +51,11 @@ app.get('/login', (req, res) => {
 ///////////////////////////////////////
 // Handle Callback
 ///////////////////////////////////////
+
+/**
+ * This code completes the OAuth 2.0 authorization flow by exchanging the authorization code 
+ * for an access token, which can then be used to access Spotify's API on behalf of the user.
+ */
 
 app.get('/callback', async (req, res) => {
   const code = req.query.code || null;
