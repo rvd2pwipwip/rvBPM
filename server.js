@@ -1,4 +1,5 @@
 // https://developer.spotify.com/
+// https://spotify.statuspage.io/
 require('dotenv').config();
 const clientSecret = process.env.CLIENT_SECRET;
 const clientId = process.env.CLIENT_ID;
