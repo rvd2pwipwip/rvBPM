@@ -1,5 +1,9 @@
 const { getBPMs } = require('./bpmExtractor'); 
 
+// FOR FEAR OF AI TRAINING ON THEIR DATA,
+// SPOTIFY HAS DEPRECATED THE AUDIO-FEATURES AND AUDIO-ANALYSIS ENDPOINTS 
+// AS OF NOVEMBER 2024.
+
 /**
  * https://developer.spotify.com/
  * The Spotify app's id and secret are in the environment variable (.env). 
@@ -53,7 +57,7 @@ app.listen(port, () => {
  */
 
 const redirectUri = 'http://localhost:8888/callback';
-const scopes = 'user-read-private user-read-email';
+const scopes = 'user-read-private user-read-email playlist-read-private playlist-read-collaborative';
 
 app.get('/login', (req, res) => {
   const authUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${clientId}&scope=${encodeURIComponent(
@@ -92,7 +96,7 @@ app.get('/callback', async (req, res) => {
     });
     const accessToken = response.data.access_token;
     spotifyToken = accessToken;
-    res.send(`Access Token: ${accessToken}`);
+    res.redirect('/playlist-details'); // Redirect to the playlist BPM endpoint
   } catch (error) {
     console.error(
       'Error retrieving access token:',
@@ -104,37 +108,75 @@ app.get('/callback', async (req, res) => {
   }
 });
 
-// Fetch BPM from a playlist
-app.get('/playlist-bpm', async (req, res) => {
+app.get('/playlist-details', async (req, res) => {
   const accessToken = spotifyToken; // Use the access token you obtained
-  const playlistId = '5YVM4PAejxwj8wc8gagFPQ'; // Replace with your playlist ID
+  const playlistId = '4XPb6XNKj6Nlrw69DiI6T0'; // Replace with your playlist ID
 
   try {
-    const trackBPMs = await getBPMs(accessToken, playlistId);
+    // Fetch playlist details to get the name
+    const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
 
-    // Fetch track details to get track titles
+    const playlistName = playlistResponse.data.name;
+
+    // Fetch playlist tracks
     const tracksResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
       headers: { 'Authorization': 'Bearer ' + accessToken }
     });
 
-    const trackDetails = tracksResponse.data.items.map(item => ({
-      title: item.track.name,
-      bpm: trackBPMs.find(bpm => bpm.id === item.track.id)?.bpm || 'N/A'
-    }));
+    // Extract track titles
+    const trackTitles = tracksResponse.data.items.map(item => item.track.name);
 
     // Generate HTML response
-    let html = '<h1>Playlist Tracks and BPM</h1><ul>';
-    trackDetails.forEach(track => {
-      html += `<li>${track.title}: ${track.bpm} BPM</li>`;
+    let html = `<h1>Playlist Name: ${playlistName}</h1><h2>Track Titles</h2><ul>`;
+    trackTitles.forEach(title => {
+      html += `<li>${title}</li>`;
     });
     html += '</ul>';
 
     res.send(html);
   } catch (error) {
-    console.error('Error fetching BPM data:', error.response ? error.response.data : error.message);
-    res.send('Error fetching BPM data');
+    console.error('Error fetching playlist details:', error.response ? error.response.data : error.message);
+    res.send('Error fetching playlist details');
   }
 });
+
+// SPOTIFY HAS DEPRECATED THE AUDIO-FEATURES AND AUDIO-ANALYSIS ENDPOINTS AS OF NOVEMBER 2024.
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+// Fetch BPM from a playlist
+// app.get('/playlist-bpm', async (req, res) => {
+//   const accessToken = spotifyToken; // Use the access token you obtained
+//   const playlistId = '5YVM4PAejxwj8wc8gagFPQ'; // Replace with your playlist ID
+
+//   try {
+//     const trackBPMs = await getBPMs(accessToken, playlistId);
+
+//     // Fetch track details to get track titles
+//     const tracksResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+//       headers: { 'Authorization': 'Bearer ' + accessToken }
+//     });
+
+//     const trackDetails = tracksResponse.data.items.map(item => ({
+//       title: item.track.name,
+//       bpm: trackBPMs.find(bpm => bpm.id === item.track.id)?.bpm || 'N/A'
+//     }));
+
+//     // Generate HTML response
+//     let html = '<h1>Playlist Tracks and BPM</h1><ul>';
+//     trackDetails.forEach(track => {
+//       html += `<li>${track.title}: ${track.bpm} BPM</li>`;
+//       html += `<li>${track.title}</li>`;
+//     });
+//     html += '</ul>';
+
+//     res.send(html);
+//   } catch (error) {
+//     console.error('Error fetching BPM data:', error.response ? error.response.data : error.message);
+//     res.send('Error fetching da BPM data');
+//   }
+// });
 
 // // Start the server `node server.js`
 // app.listen(port, () => {
