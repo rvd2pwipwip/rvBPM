@@ -125,17 +125,31 @@ app.get('/playlist-details', async (req, res) => {
       headers: { 'Authorization': 'Bearer ' + accessToken }
     });
 
-    // Extract track titles
-    const trackTitles = tracksResponse.data.items.map(item => item.track.name);
+    // Extract track titles and artist names
+    const tracks = tracksResponse.data.items.map(item => ({
+      title: item.track.name,
+      artist: item.track.artists.map(artist => artist.name).join(', ')
+    }));
 
     // Generate HTML response
-    let html = `<h1>Playlist Name: ${playlistName}</h1><h2>Track Titles</h2><ul>`;
-    trackTitles.forEach(title => {
-      html += `<li>${title}</li>`;
+    let html = `<h1>Playlist Name: ${playlistName}</h1><h2>Track Titles and Artists</h2><ul>`;
+    tracks.forEach(track => {
+      html += `<li>${track.title}: ${track.artist}</li>`;
     });
     html += '</ul>';
 
-    res.send(html);
+    // Generate JSON response
+    const jsonResponse = {
+      playlistName: playlistName,
+      tracks: tracks
+    };
+
+    // Send both HTML and JSON
+    res.format({
+      'text/html': () => res.send(html),
+      'application/json': () => res.json(jsonResponse)
+    });
+
   } catch (error) {
     console.error('Error fetching playlist details:', error.response ? error.response.data : error.message);
     res.send('Error fetching playlist details');
