@@ -11,6 +11,8 @@ const { getBPMs } = require('./bpmExtractor');
  * open http://localhost:8888 and log in to Spotify http://localhost:8888/login
  * to get an access token.
  * https://spotify.statuspage.io/
+ * 
+ * Then replace the playlist ID on both HTML and CSV endpoints
  */
 
 require('dotenv').config();
@@ -111,9 +113,8 @@ app.get('/callback', async (req, res) => {
 const { Parser } = require('json2csv');
 
 app.get('/playlist-details', async (req, res) => {
+  const playlistId = '6ytIDlhYL4T2VfFGKuwAey'; // Updated playlist ID
   const accessToken = spotifyToken; // Use the access token you obtained
-  const playlistId = '6ytIDlhYL4T2VfFGKuwAey'; // Replace with your playlist ID
-
   try {
     // Fetch playlist details to get the name
     const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
@@ -159,9 +160,8 @@ app.get('/playlist-details', async (req, res) => {
 });
 
 app.get('/playlist-details/csv', async (req, res) => {
+  const playlistId = '6ytIDlhYL4T2VfFGKuwAey'; // Updated playlist ID
   const accessToken = spotifyToken; // Use the access token you obtained
-  const playlistId = '4XPb6XNKj6Nlrw69DiI6T0'; // Replace with your playlist ID
-
   try {
     // Fetch playlist details to get the name
     const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
