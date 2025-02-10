@@ -108,6 +108,8 @@ app.get('/callback', async (req, res) => {
   }
 });
 
+const { Parser } = require('json2csv');
+
 app.get('/playlist-details', async (req, res) => {
   const accessToken = spotifyToken; // Use the access token you obtained
   const playlistId = '4XPb6XNKj6Nlrw69DiI6T0'; // Replace with your playlist ID
@@ -149,6 +151,16 @@ app.get('/playlist-details', async (req, res) => {
       'text/html': () => res.send(html),
       'application/json': () => res.json(jsonResponse)
     });
+
+    // Convert JSON to CSV
+    const json2csvParser = new Parser();
+    const csv = json2csvParser.parse(tracks);
+
+    // Send CSV file with playlist name as filename
+    const sanitizedPlaylistName = playlistName.replace(/[^a-z0-9]/gi, '_').toLowerCase(); // Sanitize filename
+    res.header('Content-Type', 'text/csv');
+    res.attachment(`${sanitizedPlaylistName}.csv`);
+    res.send(csv);
 
   } catch (error) {
     console.error('Error fetching playlist details:', error.response ? error.response.data : error.message);
