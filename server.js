@@ -112,7 +112,7 @@ const { Parser } = require('json2csv');
 
 app.get('/playlist-details', async (req, res) => {
   const accessToken = spotifyToken; // Use the access token you obtained
-  const playlistId = '4XPb6XNKj6Nlrw69DiI6T0'; // Replace with your playlist ID
+  const playlistId = '6ytIDlhYL4T2VfFGKuwAey'; // Replace with your playlist ID
 
   try {
     // Fetch playlist details to get the name
@@ -151,6 +151,35 @@ app.get('/playlist-details', async (req, res) => {
       'text/html': () => res.send(html),
       'application/json': () => res.json(jsonResponse)
     });
+
+  } catch (error) {
+    console.error('Error fetching playlist details:', error.response ? error.response.data : error.message);
+    res.send('Error fetching playlist details');
+  }
+});
+
+app.get('/playlist-details/csv', async (req, res) => {
+  const accessToken = spotifyToken; // Use the access token you obtained
+  const playlistId = '4XPb6XNKj6Nlrw69DiI6T0'; // Replace with your playlist ID
+
+  try {
+    // Fetch playlist details to get the name
+    const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+
+    const playlistName = playlistResponse.data.name;
+
+    // Fetch playlist tracks
+    const tracksResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+
+    // Extract track titles and artist names
+    const tracks = tracksResponse.data.items.map(item => ({
+      title: item.track.name,
+      artist: item.track.artists.map(artist => artist.name).join(', ')
+    }));
 
     // Convert JSON to CSV
     const json2csvParser = new Parser();
