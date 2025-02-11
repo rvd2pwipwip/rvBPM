@@ -111,6 +111,27 @@ app.get('/callback', async (req, res) => {
 });
 
 const { Parser } = require('json2csv');
+
+// Fetch all playlist tracks (with pagination for 100+)
+async function getAllPlaylistTracks(playlistId, accessToken) {
+  let tracks = [];
+  let nextURL = `https://api.spotify.com/v1/playlists/${playlistId}/tracks`;
+
+  while (nextURL) {
+    const response = await axios.get(nextURL, {
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+
+    // Add the current batch of tracks to our array
+    tracks = tracks.concat(response.data.items);
+
+    // Get the URL for the next batch of tracks, if any
+    nextURL = response.data.next;
+  }
+
+  return tracks;
+}
+
 // https://open.spotify.com/playlist/4aVwn1fC0Gai4HOLbHVo9U?si=56f7a0d44b5d4b32
 
 app.get('/playlist-details', async (req, res) => {
@@ -124,27 +145,8 @@ app.get('/playlist-details', async (req, res) => {
 
     const playlistName = playlistResponse.data.name;
 
+    // Fetch all tracks
     const tracks = await getAllPlaylistTracks(playlistId, accessToken);
-
-    // Fetch all playlist tracks (with pagination for 100+)
-    async function getAllPlaylistTracks(playlistId, accessToken) {
-      let tracks = [];
-      let nextURL = `https://api.spotify.com/v1/playlists/${playlistId}/tracks`;
-    
-      while (nextURL) {
-        const response = await axios.get(nextURL, {
-          headers: { 'Authorization': 'Bearer ' + accessToken }
-        });
-    
-        // Add the current batch of tracks to our array
-        tracks = tracks.concat(response.data.items);
-    
-        // Get the URL for the next batch of tracks, if any
-        nextURL = response.data.next;
-      }
-    
-      return tracks;
-    }
 
     // Extract track titles and artist names
     const trackDetails = tracks.map(item => ({
@@ -154,7 +156,7 @@ app.get('/playlist-details', async (req, res) => {
 
     // Generate HTML response
     let html = `<h1>Playlist Name: ${playlistName}</h1><h2>Track Titles and Artists</h2><ul>`;
-    tracks.forEach(track => {
+    trackDetails.forEach(track => {
       html += `<li>${track.title}: ${track.artist}</li>`;
     });
     html += '</ul>';
@@ -188,13 +190,11 @@ app.get('/playlist-details/csv', async (req, res) => {
 
     const playlistName = playlistResponse.data.name;
 
-    // Fetch playlist tracks
-    const tracksResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
-      headers: { 'Authorization': 'Bearer ' + accessToken }
-    });
+    // Fetch all tracks using the same function
+    const tracks = await getAllPlaylistTracks(playlistId, accessToken);
 
     // Extract track titles and artist names
-    const tracks = tracksResponse.data.items.map(item => ({
+    const trackDetails = tracks.map(item => ({
       title: item.track.name,
       artist: item.track.artists.map(artist => artist.name).join(', ')
     }));
