@@ -132,10 +132,10 @@ async function getAllPlaylistTracks(playlistId, accessToken) {
   return tracks;
 }
 
-// https://open.spotify.com/playlist/4aVwn1fC0Gai4HOLbHVo9U?si=56f7a0d44b5d4b32
+// https://open.spotify.com/playlist/7MU4kChv9nIF242QWv8DJz?si=30d1ba0b3c1741e4
 
 app.get('/playlist-details', async (req, res) => {
-  const playlistId = '4aVwn1fC0Gai4HOLbHVo9U'; // Updated playlist ID
+  const playlistId = '7MU4kChv9nIF242QWv8DJz'; // Updated playlist ID
   const accessToken = spotifyToken; // Use the access token you obtained
   try {
     // Fetch playlist details to get the name
@@ -180,7 +180,7 @@ app.get('/playlist-details', async (req, res) => {
 });
 
 app.get('/playlist-details/csv', async (req, res) => {
-  const playlistId = '4aVwn1fC0Gai4HOLbHVo9U'; // Updated playlist ID
+  const playlistId = '7MU4kChv9nIF242QWv8DJz'; // Updated playlist ID
   const accessToken = spotifyToken; // Use the access token you obtained
   try {
     // Fetch playlist details to get the name
@@ -201,7 +201,7 @@ app.get('/playlist-details/csv', async (req, res) => {
 
     // Convert JSON to CSV
     const json2csvParser = new Parser();
-    const csv = json2csvParser.parse(tracks);
+    const csv = json2csvParser.parse(trackDetails);
 
     // Send CSV file with playlist name as filename
     const sanitizedPlaylistName = playlistName.replace(/[^a-z0-9]/gi, '_').toLowerCase(); // Sanitize filename
