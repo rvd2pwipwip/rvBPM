@@ -3,11 +3,7 @@ const https = require('https');
 const fs = require('fs');
 
 
-// Create HTTPS server options
-const httpsOptions = {
-  key: fs.readFileSync('./cert/private.key'),
-  cert: fs.readFileSync('./cert/certificate.pem')
-};
+
 
 // FOR FEAR OF AI TRAINING ON THEIR DATA,
 // SPOTIFY HAS DEPRECATED THE AUDIO-FEATURES AND AUDIO-ANALYSIS ENDPOINTS 
@@ -50,7 +46,7 @@ function generateCodeChallenge(verifier) {
 }
 
 // Session Management
-const session = require('express-session');
+
 
 const clientSecret = process.env.CLIENT_SECRET;
 const clientId = process.env.CLIENT_ID;
@@ -66,32 +62,28 @@ const clientId = process.env.CLIENT_ID;
  * such as handling Spotify authentication and API requests.
  */
 
-const express = require('express');
-const axios = require('axios');
-const app = express();
-const port = 8888;
-
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-      secure: true,
-      httpOnly: true,
-      sameSite: 'strict'
-  }
-}));
-
 // Setting Up a Basic Route
 app.get('/', (req, res) => {
   res.send('Hello, Spotify!');
 });
 
-// Starting the Server
-const server = https.createServer(httpsOptions, app);
-server.listen(port, () => {
-  console.log(`Server running at https://localhost:${port}`);
-});
+const express = require('express');
+const axios = require('axios');
+const app = express();
+const port = 8888;
+
+// Add session configuration here, before any routes
+const session = require('express-session');
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: true,                // Changed to true
+  saveUninitialized: true,
+  cookie: { 
+      secure: true,            // For HTTPS
+      httpOnly: true,
+      sameSite: 'lax'         // Changed to lax for better compatibility
+  }
+}));
 
 ///////////////////////////////////////
 // Set Up Authentication Route
@@ -114,6 +106,7 @@ app.get('/login', (req, res) => {
   
   // Store the code verifier in session
   req.session.codeVerifier = codeVerifier;
+  console.log('Code verifier stored in session:', codeVerifier); // Debug log
   
   const authUrl = new URL('https://accounts.spotify.com/authorize');
   authUrl.searchParams.append('client_id', clientId);
@@ -138,6 +131,7 @@ app.get('/login', (req, res) => {
 app.get('/callback', async (req, res) => {
   const code = req.query.code || null;
   const codeVerifier = req.session.codeVerifier;
+  console.log('Code verifier from session:', codeVerifier); // Debug log
 
   if (!codeVerifier) {
       console.error('No code verifier found in session');
@@ -284,6 +278,15 @@ app.get('/playlist-details/csv', async (req, res) => {
     console.error('Error fetching playlist details:', error.response ? error.response.data : error.message);
     res.send('Error fetching playlist details');
   }
+});
+
+const httpsOptions = {
+  key: fs.readFileSync('./cert/private.key'),
+  cert: fs.readFileSync('./cert/certificate.pem')
+};
+
+https.createServer(httpsOptions, app).listen(port, () => {
+  console.log(`Server running at https://localhost:${port}`);
 });
 
 // SPOTIFY HAS DEPRECATED THE AUDIO-FEATURES AND AUDIO-ANALYSIS ENDPOINTS AS OF NOVEMBER 2024.
