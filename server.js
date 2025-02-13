@@ -1,4 +1,13 @@
-const { getBPMs } = require('./bpmExtractor'); 
+const { getBPMs } = require('./bpmExtractor');
+const https = require('https');
+const fs = require('fs');
+
+
+// Create HTTPS server options
+const httpsOptions = {
+  key: fs.readFileSync('./cert/private.key'),
+  cert: fs.readFileSync('./cert/certificate.pem')
+};
 
 // FOR FEAR OF AI TRAINING ON THEIR DATA,
 // SPOTIFY HAS DEPRECATED THE AUDIO-FEATURES AND AUDIO-ANALYSIS ENDPOINTS 
@@ -17,9 +26,32 @@ const { getBPMs } = require('./bpmExtractor');
 
 require('dotenv').config();
 const qs = require('qs');
+
+// PKCE (Proof Key for Code Exchange) Authentication
+const crypto = require('crypto');
+
+function generateCodeVerifier() {
+    return crypto.randomBytes(64)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+}
+
+function generateCodeChallenge(verifier) {
+    return crypto.createHash('sha256')
+        .update(verifier)
+        .digest('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+}
+
+// Session Management
+const session = require('express-session');
+
 const clientSecret = process.env.CLIENT_SECRET;
 const clientId = process.env.CLIENT_ID;
-let spotifyToken = '';
 
 ///////////////////////////////////////
 // Set Up Express Server
@@ -37,14 +69,26 @@ const axios = require('axios');
 const app = express();
 const port = 8888;
 
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+      secure: true,
+      httpOnly: true,
+      sameSite: 'strict'
+  }
+}));
+
 // Setting Up a Basic Route
 app.get('/', (req, res) => {
   res.send('Hello, Spotify!');
 });
 
 // Starting the Server
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+const server = https.createServer(httpsOptions, app);
+server.listen(port, () => {
+  console.log(`Server running at https://localhost:${port}`);
 });
 
 ///////////////////////////////////////
@@ -58,14 +102,26 @@ app.listen(port, () => {
  * with an authorization code, which can then be exchanged for an access token.
  */
 
-const redirectUri = 'http://localhost:8888/callback';
+const redirectUri = 'https://localhost:8888/callback';
 const scopes = 'user-read-private user-read-email playlist-read-private playlist-read-collaborative';
 
+// Login route
 app.get('/login', (req, res) => {
-  const authUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${clientId}&scope=${encodeURIComponent(
-    scopes
-  )}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-  res.redirect(authUrl);
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = generateCodeChallenge(codeVerifier);
+  
+  // Store the code verifier in session
+  req.session.codeVerifier = codeVerifier;
+  
+  const authUrl = new URL('https://accounts.spotify.com/authorize');
+  authUrl.searchParams.append('client_id', clientId);
+  authUrl.searchParams.append('response_type', 'code');
+  authUrl.searchParams.append('redirect_uri', redirectUri);
+  authUrl.searchParams.append('scope', scopes);
+  authUrl.searchParams.append('code_challenge_method', 'S256');
+  authUrl.searchParams.append('code_challenge', codeChallenge);
+  
+  res.redirect(authUrl.toString());
 });
 
 ///////////////////////////////////////
@@ -79,34 +135,28 @@ app.get('/login', (req, res) => {
 
 app.get('/callback', async (req, res) => {
   const code = req.query.code || null;
-  const authOptions = {
-    url: 'https://accounts.spotify.com/api/token',
-    data: qs.stringify({
-      code: code,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
-    }),
-    headers: {
-      'Authorization': 'Basic ' + (Buffer.from(clientId + ':' + clientSecret).toString('base64')),
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-  };
+  const codeVerifier = req.session.codeVerifier;
 
   try {
-    const response = await axios.post(authOptions.url, authOptions.data, {
-      headers: authOptions.headers,
-    });
-    const accessToken = response.data.access_token;
-    spotifyToken = accessToken;
-    res.redirect('/playlist-details'); // Redirect to the playlist BPM endpoint
+      const response = await axios.post('https://accounts.spotify.com/api/token', 
+          new URLSearchParams({
+              client_id: clientId,
+              grant_type: 'authorization_code',
+              code: code,
+              redirect_uri: redirectUri,
+              code_verifier: codeVerifier
+          }), {
+          headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+          }
+      });
+
+      // Store token in session instead of global variable
+      req.session.accessToken = response.data.access_token;
+      res.redirect('/playlist-details');
   } catch (error) {
-    console.error(
-      'Error retrieving access token:',
-      error.response ? error.response.data : error.message
-    );
-    if (!res.headersSent) {
-      res.send('Error retrieving access token');
-    }
+      console.error('Error retrieving access token:', error.response ? error.response.data : error.message);
+      res.redirect('/error');
   }
 });
 
@@ -119,7 +169,10 @@ async function getAllPlaylistTracks(playlistId, accessToken) {
 
   while (nextURL) {
     const response = await axios.get(nextURL, {
-      headers: { 'Authorization': 'Bearer ' + accessToken }
+      headers: { 
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
     });
 
     // Add the current batch of tracks to our array
@@ -135,13 +188,18 @@ async function getAllPlaylistTracks(playlistId, accessToken) {
 // https://open.spotify.com/playlist/7MU4kChv9nIF242QWv8DJz?si=30d1ba0b3c1741e4
 
 app.get('/playlist-details', async (req, res) => {
-  const playlistId = '7MU4kChv9nIF242QWv8DJz'; // Updated playlist ID
-  const accessToken = spotifyToken; // Use the access token you obtained
+  if (!req.session.accessToken) {
+      return res.redirect('/login');
+  }
+
+  const playlistId = '7MU4kChv9nIF242QWv8DJz';
   try {
-    // Fetch playlist details to get the name
-    const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
-      headers: { 'Authorization': 'Bearer ' + accessToken }
-    });
+      const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+          headers: { 
+              'Authorization': `Bearer ${req.session.accessToken}`,
+              'Content-Type': 'application/json'
+          }
+      });
 
     const playlistName = playlistResponse.data.name;
 
@@ -180,13 +238,18 @@ app.get('/playlist-details', async (req, res) => {
 });
 
 app.get('/playlist-details/csv', async (req, res) => {
-  const playlistId = '7MU4kChv9nIF242QWv8DJz'; // Updated playlist ID
-  const accessToken = spotifyToken; // Use the access token you obtained
+  if (!req.session.accessToken) {
+      return res.redirect('/login');
+  }
+
+  const playlistId = '7MU4kChv9nIF242QWv8DJz';
   try {
-    // Fetch playlist details to get the name
-    const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
-      headers: { 'Authorization': 'Bearer ' + accessToken }
-    });
+      const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+          headers: { 
+              'Authorization': `Bearer ${req.session.accessToken}`,
+              'Content-Type': 'application/json'
+          }
+      });
 
     const playlistName = playlistResponse.data.name;
 
