@@ -28,14 +28,16 @@ require('dotenv').config();
 const qs = require('qs');
 
 // PKCE (Proof Key for Code Exchange) Authentication
-const crypto = require('crypto');
+const crypto = require('crypto'); // Built-in Node.js module
 
 function generateCodeVerifier() {
-    return crypto.randomBytes(64)
+    const length = 64;
+    return crypto.randomBytes(length)
         .toString('base64')
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
-        .replace(/=/g, '');
+        .replace(/=/g, '')
+        .slice(0, length);
 }
 
 function generateCodeChallenge(verifier) {
@@ -137,6 +139,11 @@ app.get('/callback', async (req, res) => {
   const code = req.query.code || null;
   const codeVerifier = req.session.codeVerifier;
 
+  if (!codeVerifier) {
+      console.error('No code verifier found in session');
+      return res.redirect('/login');
+  }
+
   try {
       const response = await axios.post('https://accounts.spotify.com/api/token', 
           new URLSearchParams({
@@ -151,12 +158,13 @@ app.get('/callback', async (req, res) => {
           }
       });
 
-      // Store token in session instead of global variable
-      req.session.accessToken = response.data.access_token;
+      const accessToken = response.data.access_token;
+      req.session.accessToken = accessToken; // Store in session
+      spotifyToken = accessToken; // Keep this for compatibility
       res.redirect('/playlist-details');
   } catch (error) {
       console.error('Error retrieving access token:', error.response ? error.response.data : error.message);
-      res.redirect('/error');
+      res.redirect('/login');
   }
 });
 
