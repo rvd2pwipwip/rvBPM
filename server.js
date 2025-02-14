@@ -9,6 +9,9 @@
  * 2. Start the server with `node server.js`
  * 3. Visit https://localhost:8888 and log in with Spotify
  * 4. Access playlist details at /playlist-details or /playlist-details/csv
+ * 5. Replace playlistId value with Spotify playlist id
+ *    where https://open.spotify.com/playlist/4aVwn1fC0Gai4HOLbHVo9U?si=ad91dfc12dbb4394
+ *    is 4aVwn1fC0Gai4HOLbHVo9U
  */
 
 // Core Dependencies
@@ -140,7 +143,7 @@ app.get('/playlist-details', async (req, res) => {
         return res.redirect('/login');
     }
 
-    const playlistId = '7MU4kChv9nIF242QWv8DJz';
+    const playlistId = '4aVwn1fC0Gai4HOLbHVo9U';
     try {
         const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
             headers: { 
@@ -185,7 +188,7 @@ app.get('/playlist-details/csv', async (req, res) => {
         return res.redirect('/login');
     }
 
-    const playlistId = '7MU4kChv9nIF242QWv8DJz';
+    const playlistId = '4aVwn1fC0Gai4HOLbHVo9U';
     try {
         const playlistResponse = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
             headers: { 
